@@ -9,15 +9,15 @@
 - George Padayatti
 - Florin Coptil
 
-**Related ADRs:** This ADR builds upon and reconciles [ADR#168 (EAA Provider Identity Verification via Attestation Chaining)](./EAA-Chaining.md) and [ADR#336 (EAA provider identity verification based on live key-binding query)](./eaa-key-binding-authzen.md).
+**Related ADRs:** This ADR builds upon and reconciles [EAA Provider Identity Verification via Attestation Chaining](./EAA-Chaining.md) and [EAA provider identity verification based on live key-binding query](./eaa-key-binding-authzen.md).
 
 ## 1. Context and Problem Statement
 
 Architectural discussions have yielded two distinct models for EAA Provider identity verification:
 
-1. **The Chaining Model ([ADR#168](./EAA-Chaining.md)):** A decentralized approach that embeds a full, signed credential (like the EBWOID) into the EAA header. It provides a self-contained, offline-verifiable proof of identity, making it ideal also for archival and offline verifiable attestations, primary trade-off is a larger EAA payload size and a fresh cached trusted list if no internet calls are possible.
+1. **[The Chaining Model](./EAA-Chaining.md):** A decentralized approach that embeds a full, signed credential (like the EBWOID) into the EAA header. It provides a self-contained, offline-verifiable proof of identity, making it ideal also for archival and offline verifiable attestations, primary trade-off is a larger EAA payload size and a fresh cached trusted list if no internet calls are possible.
 
-2. **The Central Registry API Model ([ADR#336](./eaa-key-binding-authzen.md)):** A centralized approach that uses a lightweight EAA containing only the issuer's identifier and public key. It relies on the verifier making a live API call to a national registry to confirm the key-binding. It offers a minimal payload but is dependent on the creation of currently non-existent historical query APIs across all Member States.
+2. **[The Central Registry API Model](./eaa-key-binding-authzen.md):** A centralized approach that uses a lightweight EAA containing only the issuer's identifier and public key. It relies on the verifier making a live API call to a national registry to confirm the key-binding. It offers a minimal payload but is dependent on the creation of currently non-existent historical query APIs across all Member States.
 
 Neither model alone optimally serves the entire spectrum of We Build use cases. The chaining model model may be inefficient for high-volume transactional checks, while a Central Registry API model may lack future resilience requirements due to several single point of failures, and does not satisfy the short availability constraints within We Build. Forcing the ecosystem to choose one would create unnecessary limitations and block important scenarios.
 
@@ -25,13 +25,13 @@ This ADR establishes a consensus architecture that accommodates both, providing 
 
 ## 2. The Architectural Decision: Adopt a Complementary Hybrid Model
 
-Instead of viewing the Chaining Model ([ADR#168](./EAA-Chaining.md)) and the Central Registry API Model ([ADR#336](./eaa-key-binding-authzen.md)) as mutually exclusive competitors, we will adopt a **complementary hybrid architecture**. This approach provides a robust, flexible, and pragmatic path forward, allowing the ecosystem to leverage the strengths of both models while mitigating their respective weaknesses.
+Instead of viewing the [Chaining Model](./EAA-Chaining.md) and the [Central Registry API Model](./eaa-key-binding-authzen.md)) as mutually exclusive competitors, we will adopt a **complementary hybrid architecture**. This approach provides a robust, flexible, and pragmatic path forward, allowing the ecosystem to leverage the strengths of both models while mitigating their respective weaknesses.
 
 A verifier's wallet must be built to handle both patterns seamlessly. Upon receiving an EAA, it would inspect the header:
 
-* If a full, chained credential (like an EBWOID) is present, it performs the offline, self-contained cryptographic validation as specified in [ADR#168](./EAA-Chaining.md).
+* If a full, chained credential (like an EBWOID) is present, it performs the offline, self-contained cryptographic validation as specified in the [Chaining Model](./EAA-Chaining.md).
 
-* If only a lightweight identifier and key are present, it initiates the online query to the central registry's API as specified in [ADR#336](./eaa-key-binding-authzen.md).
+* If only a lightweight identifier and key are present, it initiates the online query to the central registry's API as specified in the [Central Registry API Model](./eaa-key-binding-authzen.md).
 
 This hybrid design empowers EAA issuers to select the optimal trust mechanism on a per-use-case basis, as defined in the attestation's rulebook.
 
@@ -50,7 +50,7 @@ This hybrid design empowers EAA issuers to select the optimal trust mechanism on
 ### What Becomes More Difficult or Requires Care?
 
 * **Implementation Effort for Wallet Providers:** Wallet providers would need to implement the verification logic for both models.
-    * **Mitigation:** This is less burdensome than it appears. The verification logic for the Chaining Model (validating an X.509-based chain) is a mandatory prerequisite for any wallet that needs to verify the EBWOID itself. The work to implement [ADR#168](./EAA-Chaining.md) is therefore largely a sunk cost. The additional effort is to implement the client-side logic for the [ADR#336](./eaa-key-binding-authzen.md) API query.
+    * **Mitigation:** This is less burdensome than it appears. The verification logic for the Chaining Model (validating an X.509-based chain) is a mandatory prerequisite for any wallet that needs to verify the EBWOID itself. The work to implement the [Chaining Model](./EAA-Chaining.md) is therefore largely a sunk cost. The additional effort is to implement the client-side logic for the [Central Registry API Model](./eaa-key-binding-authzen.md) API query.
 
 ## 4. Advice
 
