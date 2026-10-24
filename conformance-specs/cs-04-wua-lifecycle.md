@@ -533,11 +533,11 @@ The KA `key_storage` and `certification` claims (TS-03 [3], clause 2.3.2) expres
 
 | Level | Key storage | KA `key_storage` | KA `certification` |
 |---|---|---|---|
-| **K1: Certified device** | Private keys reside in a device or module that has been independently certified under a recognised scheme (e.g., Common Criteria, EUCC, or equivalent) | `["iso_18045_high"]` or higher | Identifies the certification scheme, evaluated requirements, and assurance level |
-| **K2: Hardware, non-certified** | Private keys reside in a hardware-backed store that has not been independently certified, or whose certification status is unknown to the Wallet Provider | `["iso_18045_moderate"]` or as attested | Absent or states that no recognised certification applies |
-| **K3: Software** | Private keys reside in software-managed storage (process memory, encrypted container, or equivalent) with no hardware isolation | `["iso_18045_basic"]` | `"none"` |
+| **K1: Certified device** | Private keys reside in a device or module that has been independently certified under a recognised scheme (e.g., Common Criteria, EUCC, or equivalent) | `["iso_18045_high"]` or higher | A URL that links to the certification (OpenID4VCI [5], Appendix D); the document it resolves to identifies the scheme, the evaluated requirements and the assurance level |
+| **K2: Hardware, non-certified** | Private keys reside in a hardware-backed store that has not been independently certified, or whose certification status is unknown to the Wallet Provider | `["iso_18045_moderate"]` or as attested | Absent |
+| **K3: Software** | Private keys reside in software-managed storage (process memory, encrypted container, or equivalent) with no hardware isolation | `["iso_18045_basic"]` where the Wallet Provider has assessed the store to that level, otherwise the claim is omitted | Absent |
 
-> Note (value vocabulary): the registered values are `iso_18045_high`, `iso_18045_moderate`, `iso_18045_enhanced-basic` and `iso_18045_basic` (OpenID4VCI [5], Appendix D; ARF 2.9.0 [1], WIAM_08a, which also allows `none` for a keystore with no certification). There is no `iso_18045_low`. K3 is an uncertified software store, so it claims no more than the lowest registered value. The mapping from K levels to values is a Wallet Provider decision (see C.2.4); a deployment MAY use a different level scheme as long as the issuer's `key_attestations_required` can be evaluated against the values emitted.
+> Note (value vocabulary): the registered values are `iso_18045_high`, `iso_18045_moderate`, `iso_18045_enhanced-basic` and `iso_18045_basic` (OpenID4VCI [5], Appendix D). There is no `iso_18045_low`, and `none` is not a `key_storage` value: ARF 2.9.0 [1], WIAM_08a allows `none` for the keystore security level a Wallet Provider assigns, but in the KA `key_storage` and `certification` are both OPTIONAL, so an uncertified, unassessed store simply omits them. K3 therefore claims `iso_18045_basic` only where the Wallet Provider has assessed the software store to that level. The mapping from K levels to values is a Wallet Provider decision (see C.2.4); a deployment MAY use a different level scheme as long as the issuer's `key_attestations_required` can be evaluated against the values emitted.
 
 The `user_authentication` claim is orthogonal to key storage level. A K1 deployment with biometric unlock, a K2 deployment with PIN, and a K3 deployment with a two-factor remote authentication protocol may each declare different `user_authentication` values on the ISO 18045 AVA_VAN scale. The issuer evaluates both claims independently.
 
@@ -571,7 +571,7 @@ This clause is informative. The K and S levels, and the claim values that expres
 
 1. **Inputs.** The Wallet Provider distinguishes *verified* inputs (for example a verified authenticator attestation resolved through a trusted metadata service, a verified platform key attestation, a verified application attestation) from *claimed* inputs (what the client reports about itself). A claimed input is evidence only to the extent the Wallet Provider's policy says so.
 2. **Policy.** The Wallet Provider applies a policy it controls, and that is the record of its audit decisions (for example which authenticators or products it has assessed to which level), to the inputs and obtains the KA claim values (`key_storage`, `user_authentication`, `certification`) and the WIA content. The policy, the level scheme and the certification catalogue are configuration, not code. A claim made by the client can lower the result but never raise it unless the policy explicitly says so.
-3. **Basis.** The `certification` claim carries the scheme and level that justify the assignment, so an issuer or auditor can trace it. No new claim is needed.
+3. **Basis.** The `certification` claim is a URL (OpenID4VCI [5], Appendix D), so the basis for an assignment is a document the Wallet Provider publishes at that URL: the assessment record naming the scheme, the evaluated requirements and the level. An issuer or auditor follows the URL to trace the assignment. No new claim is needed, and no structured members are added to the claim; a Wallet Provider that wants to expose a rule or policy identifier does so in its own audit trail or in the published document.
 4. **Environments.** A Wallet Provider that grants levels on a basis weaker than a production audit (for example a development or interoperability-testing deployment that treats a software store as high) is distinguished from a production Wallet Provider by the issuer's trust in its signing certificate chain (x5c) and `wallet_solution_certification_information`, not by a flag in the attestation. An issuer that trusts only the production Wallet Provider rejects the other regardless of the level values it asserts.
 
 ## C.3 Mapping to WIA and KA data structures
@@ -585,7 +585,7 @@ The KA is a JWT with `typ: keyattestation+jwt` (TS-03 [3], clause 2.3.2). The ke
 | KA claim | K1 (certified device) | K2 (hardware, non-certified) | K3 (software) |
 |---|---|---|---|
 | `key_storage` | `["iso_18045_high"]` or higher | `["iso_18045_moderate"]` or as attested | `["iso_18045_basic"]` |
-| `certification` | `{"scheme": "<name>", "assurance_level": "<level>"}` | `{}` or absent | `"none"` |
+| `certification` | `"https://wp.example/certifications/<assessment>"` (a URL; the scheme and level are in the document it links to) | absent | absent |
 | `user_authentication` | Per authentication mechanism (independent of K level) | Per authentication mechanism | Per authentication mechanism |
 
 Example KA payload fragment for a K1 deployment with two-factor user authentication:
@@ -595,10 +595,7 @@ Example KA payload fragment for a K1 deployment with two-factor user authenticat
   "attested_keys": [{"kty": "EC", "crv": "P-256", "x": "...", "y": "..."}],
   "key_storage": ["iso_18045_high"],
   "user_authentication": ["iso_18045_high"],
-  "certification": {
-    "scheme": "EUCC",
-    "assurance_level": "substantial"
-  },
+  "certification": "https://wp.example/certifications/eucc-substantial.json",
   "key_storage_status": {
     "status": {"status_list": {"idx": 8081, "uri": "https://wp.example/ka-status/7"}},
     "exp": 1779678000
@@ -613,7 +610,6 @@ Example KA payload fragment for a K3 deployment with no user authentication:
   "attested_keys": [{"kty": "EC", "crv": "P-256", "x": "...", "y": "..."}],
   "key_storage": ["iso_18045_basic"],
   "user_authentication": [],
-  "certification": "none",
   "key_storage_status": {
     "status": {"status_list": {"idx": 9012, "uri": "https://wp.example/ka-status/7"}},
     "exp": 1779678000
